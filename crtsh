@@ -1,0 +1,10 @@
+#! /bin/bash
+
+echo -e "Alphabet list: \c"
+read alpha
+echo -e "Domain: \c"
+read domain
+echo -e "Output: \c"
+read out
+
+parallel -j 10 -a $alpha curl -s https://crt.sh/?q=%{}.$domain&output=json  | grep $domain > $out
