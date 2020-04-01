@@ -1,0 +1,10 @@
+#! /bin/bash
+
+echo -e "Subdomain list: \c"
+read value
+echo -e "Threads: \c"
+read thread
+echo -e "Output: \c"
+read out
+parallel -j $thread -a $value "dig {}" | grep CNAME > $out
+
