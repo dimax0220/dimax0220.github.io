@@ -6,4 +6,5 @@
    <script type="text/javascript">
       alert(document.domain);
    </script>
+   <a href='javascript:alert(1);'>dabba</a>
 </svg>
