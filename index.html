@@ -7,6 +7,9 @@
   <div class="imgCenter">
   
   </div>
+  <form method="post" action="@Model.action_url" id="payForm" name="form1">
+       <input type="hidden" name="backurl" value="@Model.backurl">
+</form>
   <form>
   <p>Введите число от 1 до 10</p>
   <p><input type="search" value="name"></p>
