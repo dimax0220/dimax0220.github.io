@@ -3,4 +3,4 @@
 echo -e "Domain: \c"
 read value
 
-findomain_securitytrails_token="C4Ws5HVTrQXAW9caltv7H6z0XWjmuIMQ" /root/.cargo/bin/findomain -t $value -o
+findomain_securitytrails_token="token" /root/.cargo/bin/findomain -t $value -o
