@@ -1,2 +1,2 @@
-var login=qwerty
-var pass=qwe123
+var login = "qwerty";
+var pass = "qwe123";
