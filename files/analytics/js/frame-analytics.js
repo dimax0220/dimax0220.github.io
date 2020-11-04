@@ -1,1 +1,1 @@
-console.log("dabba");
+console.log('Frame Analytics Script Securely dabba');
