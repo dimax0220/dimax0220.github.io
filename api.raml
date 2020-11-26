@@ -1,0 +1,2268 @@
+#%RAML 1.0
+title: 'REST API v1 description for Multi-service Portal'
+version: '1'
+mediaType: 'application/json'
+
+protocols:
+    - HTTPS
+
+baseUri: https://{host}:{port}/api/{version}
+baseUriParameters:
+    host:
+        displayName: Domain name / IP address
+        type: string
+        default: localhost
+        example: localhost  # will be changed in api_ssi
+    port:
+        displayName: Port
+        type: string
+        default: '443'
+        example: '443'
+
+securitySchemes:
+  session: !include security/session.yml
+  basicAuth: !include security/basic.yml
+
+securedBy:
+    - session
+    - basicAuth
+
+annotationTypes:
+    AllowedTo:
+        type: array
+        items:
+            type: string
+            enum: ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin", "tenant_viewer"]
+
+/accounts:
+    description: 'Accounts routing'
+    get:
+        description: 'Find host by account name'
+        (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+        is:
+            - hasUnauthorized
+            - hasForbidden
+        queryParameters:
+            login: !include parameters/login.yaml
+            user_id: !include parameters/user_id.yaml
+        responses:
+            200:
+                body:
+                    application/json:
+                        example: !include examples/accounts/accounts_get_response.json
+                        schema: accounts_get_response
+                description: Success
+    post:
+        body:
+            application/json:
+                example: !include examples/accounts/accounts_post_request.json
+                schema: accounts_post_request
+        description: 'DEPRECATED. Register a new account on router'
+        (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin"]
+        queryParameters:
+            login: !include parameters/login.yaml
+            server:
+                required: false
+                type: string
+            sign:
+                required: false
+                type: string
+            url:
+                required: true
+                type: string
+                example: http%3A%2F%2Flocalhost%3A52055
+            token:
+                required: true
+                type: string
+                example: gAAAAABYxqV9145fLfLMRvzQPcpLYlTkYD9xmal9uUK02EtERYLMJV9fYhOTcCDbBW65UcAPKR9aNOHPmMj-20-1hytGMUSn1hU77FHeQipZJPv0byc4c63WcU6qqjnZIhxwIIiLK1NLODcaBDTr7xtuPeJ-Tyc3kAhq1nqj40-WEOdTbCGBkKZxIViU3RWW-FGN3bnG499SYwQ0GoubEL3hv96kOJtiig%3D%3D
+            scheme:
+                required: false
+                enum: [http, https]
+        is:
+            - hasConflict
+            - hasCreated
+            - hasUnsupportedMediaType
+        responses:
+            406:
+                description: Not acceptable
+                body:
+                    application/json:
+                        schema: anything_schema
+                        example: "\"Not acceptable\""
+    /check:
+        get:
+            description: 'Checks account existence on router'
+            (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+            queryParameters:
+                login:
+                    required: true
+                    type: string
+                server:
+                    required: true
+                    type: string
+                sign:
+                    required: true
+                    type: string
+            is:
+                - hasConflict
+                - hasNotFound
+
+/actions:
+    /accept_terms:
+        description: 'Accept terms (EULA)'
+        post:
+            description: 'Allows user to accept terms (EULA)'
+            (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+            is:
+                - hasBasicSuccess
+                - hasBadRequest
+                - hasUnauthorized
+
+    /activate:
+        description: 'Activate account'
+        get:
+            queryParameters:
+                token: !include parameters/activation_token.yaml
+            description: 'Decode access token'
+            (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+            is:
+                - hasUnauthorized
+                - hasForbidden
+                - hasNotFound
+            responses:
+                200:
+                    body:
+                        application/json:
+                            example: !include examples/actions/get_activate_response.json
+                            schema: actions_get_activate_response
+                    description: Success
+
+        post:
+            body:
+                application/json:
+                    example: !include examples/actions/activate_post_request.json
+                    schema: activate_post_request
+            description: 'Grant access via token'
+            (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin"]
+            queryParameters:
+                token: !include parameters/activation_token.yaml
+            is:
+                - hasBasicSuccess
+                - hasBadRequest
+                - hasUnauthorized
+                - hasNotFound
+                - hasUnsupportedMediaType
+
+    /change_login:
+        description: 'Login name management'
+        post:
+            body:
+                application/json:
+                    example: !include examples/actions/change_login_request.json
+                    schema: change_login_request
+            description: 'Update login for your current account'
+            (AllowedTo): ["root_admin"]
+            queryParameters:
+                local:
+                    description: 'If this flag is set to 0, Account Server will try to create new account'
+                    displayName: local
+                    example: 0
+                    required: false
+                    type: integer
+            is:
+                - hasBasicSuccess
+                - hasBadRequest
+                - authProtected
+                - hasUnsupportedMediaType
+                - hasConflict
+
+    /change_password:
+        description: 'Actions with account`s password'
+        post:
+            body:
+                application/json:
+                    example: !include examples/actions/change_password_request.json
+                    schema: change_password_request
+            description: 'Allows user to change the password'
+            (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+            is:
+                - hasBasicSuccess
+                - hasBadRequest
+                - authProtected
+                - hasUnsupportedMediaType
+
+    /emailupdate:
+        description: 'Update user`s email address'
+        is:
+            - hasUnauthorized
+            - hasForbidden
+            - hasNotFound
+        get:
+            queryParameters:
+                token: !include parameters/activation_token.yaml
+            description: 'Decode access token'
+            (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+            responses:
+                200:
+                    body:
+                        application/json:
+                            example: !include examples/actions/mail_actions_get_response.json
+                            schema: mail_actions_get_response
+                    description: Success
+        post:
+            description: 'Set new email address'
+            (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+            queryParameters:
+                token: !include parameters/activation_token.yaml
+            responses:
+                200:
+                    body:
+                        application/json:
+                            example: !include examples/actions/email_update_response.json
+                            schema: email_update_response
+                    description: Success
+
+    /forgot_link:
+        description: 'Get forgot password link by login'
+        get:
+            queryParameters:
+                username:
+                    description: 'Login'
+                    displayName: username
+                    example: example
+                    required: true
+                    type: string
+                    pattern: '^[^ ]+$'
+            description: 'Get forgot password link by login'
+            (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+            responses:
+                200:
+                    body:
+                        application/json:
+                            example: !include examples/actions/forgot_link_response.json
+                            schema: forgot_link_response
+
+    /mail:
+        /activate:
+            description: 'Activate account via email'
+            get:
+                description: 'Get email parameters'
+                (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+                responses:
+                    200:
+                        body:
+                            application/json:
+                                example: !include examples/actions/mail_actions_get_response.json
+                                schema: mail_actions_get_response
+                        description: Success
+                is:
+                    - hasUnauthorized
+                    - hasNotFound
+                    - mailActionQuery
+            post:
+                body:
+                    application/json:
+                        example: !include examples/actions/mail_activate_request.json
+                        schema: activate_request
+                description: 'Send email with access token and link'
+                (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+                is:
+                    - hasNoContent
+                    - hasUnauthorized
+                    - hasNotFound
+                    - hasUnsupportedMediaType
+
+        /emailupdate:
+            description: 'Change user email address'
+            get:
+                description: 'Get email parameters'
+                (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+                is:
+                    - hasUnauthorized
+                    - hasNotFound
+                    - mailActionQuery
+                responses:
+                    200:
+                        body:
+                            application/json:
+                                example: !include examples/actions/mail_actions_get_response.json
+                                schema: mail_actions_get_response
+                        description: Success
+            post:
+                body:
+                    application/json:
+                        example: !include examples/actions/mail_activate_request.json
+                        schema: activate_request
+                description: 'Send email with access token and link'
+                (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+                is:
+                    - hasNoContent
+                    - hasUnauthorized
+                    - hasNotFound
+                    - hasUnsupportedMediaType
+                    - mailActionQuery
+        /reset:
+            description: 'Reset account via email'
+            get:
+                description: 'Get email parameters'
+                (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+                is:
+                    - hasUnauthorized
+                    - hasNotFound
+                    - mailActionQuery
+                responses:
+                    200:
+                        body:
+                            application/json:
+                                example: !include examples/actions/mail_actions_get_response.json
+                                schema: mail_actions_get_response
+                        description: Success
+
+            post:
+                body:
+                    application/json:
+                        example: !include examples/actions/mail_activate_request.json
+                        schema: activate_request
+                description: 'Send email with access token and link'
+                (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+                is:
+                    - hasNoContent
+                    - hasUnauthorized
+                    - hasNotFound
+                    - hasUnsupportedMediaType
+
+        /test:
+            description: 'Test via email'
+            post:
+                body:
+                    application/json:
+                        example: !include examples/actions/mail/test.json
+                        schema: test_mail
+                description: 'Send test email with group branded SMTP options'
+                (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+                is:
+                    - hasNoContent
+                    - hasUnauthorized
+                    - hasNotFound
+                    - hasUnsupportedMediaType
+
+    /reset:
+        description: 'Reset account password'
+        get:
+            queryParameters:
+                token: !include parameters/activation_token.yaml
+            description: 'Decode access token'
+            (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+            is:
+                - hasUnauthorized
+                - hasForbidden
+            responses:
+                200:
+                    body:
+                        application/json:
+                            example: !include examples/actions/get_response.json
+                            schema: actions_get_response
+                    description: Success
+
+        post:
+            queryParameters:
+                token: !include parameters/activation_token.yaml
+            body:
+                application/json:
+                    example: !include examples/actions/activate_post_request.json
+                    schema: activate_post_request
+            description: 'Grant access via jwt token'
+            (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+            is:
+                - hasBasicSuccess
+                - hasUnauthorized
+                - hasForbidden
+                - hasNotFound
+                - hasUnsupportedMediaType
+
+/admins:
+    /{admin}:
+        /impersonate:
+            description: 'Admin or service user impersonation'
+            get:
+                description: 'Get impersonated JWT token for specified admin. You can add jwt=''your jwt token'' query parameter to most of requests to perform this action as selected user'
+                responses:
+                    200:
+                        body:
+                            application/json:
+                                example: !include examples/_common/jwt.json
+                                schema: common_jwt_response
+                        description: Success
+                is:
+                    - authProtected
+
+        /jwt:
+            description: 'Issuing JWT token'
+            get:
+                description: 'Issue JWT token'
+                (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+                queryParameters:
+                    scope: !include parameters/scope.yaml
+                is:
+                    - hasBadRequest
+                    - authProtected
+                responses:
+                    200:
+                        body:
+                            application/json:
+                                example: !include examples/_common/jwt.json
+                                schema: common_jwt_response
+                        description: Success
+        delete:
+            description: 'Delete administrator'
+            (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin"]
+            queryParameters:
+                version: !include parameters/version.yaml
+            is:
+                - hasNoContent
+                - hasBadRequest
+                - authProtected
+                - hasUpdateRequired
+
+        description: 'Actions with administrator'
+        get:
+            description: 'Get detailed information about group administrator'
+            (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+            is:
+                - authProtected
+            responses:
+                200:
+                    body:
+                        application/json:
+                            example: !include examples/admins/admin_get_response.json
+                            schema: admin_get_response
+                    description: Success
+        put:
+            body:
+                application/json:
+                    example: !include examples/admins/admin_put_request.json
+                    schema: admin_put_request
+            description: 'Update group administrator properties'
+            (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin"]
+            is:
+                - hasBadRequest
+                - authProtected
+                - hasConflict
+                - hasUnsupportedMediaType
+                - hasUpdateRequired
+                - returnsNewVersion
+                - hasVersionAsQueryParameter
+
+/branding:
+    /scheme:
+        /available:
+            description: 'Actions with color schemes'
+            get:
+                description: 'Get all available color schemes'
+                (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+                responses:
+                    200:
+                        body:
+                            application/json:
+                                example: !include examples/branding/branding_avaliable_response.json
+                                schema: branding_avaliable_response
+                        description: Success
+
+/brands:
+    /{brand}:
+        description: Actions with brands
+        is:
+            - hasNotFound
+        get:
+            description: 'Get brand details by id'
+            securedBy: []
+            responses:
+                200:
+                    body:
+                        application/json:
+                            example: !include examples/brands/get_brand_response.json
+                            schema: get_brand_response
+                    description: Success
+
+/ca:
+    /certificate:
+        description: 'Retrieve certificate authority'
+        get:
+            is:
+                - hasBasicSuccess
+                - hasNotFound
+            queryParameters:
+                ca: !include parameters/ca.yaml
+            description: 'Get ca certificate'
+            (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+    /crl:
+        description: 'Retrieve CRL'
+        get:
+            is:
+                - hasBasicSuccess
+                - hasNotFound
+            queryParameters:
+                ca: !include parameters/ca.yaml
+            description: 'Get ca crl'
+            (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+
+/checkauth:
+    description: 'Check authentication for all methods. Internal use only'
+    is:
+        - hasNoContent
+        - hasUnauthorized
+        - hasForbidden
+    delete:
+        description: 'Check authentication for delete. Internal use only'
+    get:
+        description: 'Check authentication for get. Internal use only'
+    post:
+        description: 'Check authentication for post. Internal use only'
+    put:
+        description: 'Check authentication for put. Internal use only'
+    head:
+        description: 'Check authentication for head. Internal use only'
+    options:
+        description: 'Check authentication for options. Internal use only'
+
+/content:
+    /images:
+        /{image}:
+            description: 'Actions with images'
+            get:
+                description: 'Get a png image by id'
+                (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+                is:
+                    - hasNotModified
+                    - hasNotFound
+                responses:
+                    200:
+                        headers:
+                            Content-Type:
+                                type: string
+                                required: true
+                                example: image/png
+                            Cache-Control:
+                                type: string
+                                required: false
+                                example: max-age=86400, must-revalidate
+                        description: Success
+                        body:
+                            image/png: {}
+
+/datacenter:
+    description: 'Platform datacenter management'
+    /backupservers:
+        description: 'Manage backup servers'
+        get:
+            description: 'Get backup servers list'
+            (AllowedTo): ["root_admin"]
+            is:
+                - hasBadRequest
+                - authProtected
+                - hasRetryWith
+            responses:
+                200:
+                    body:
+                        application/json:
+                            example: !include examples/datacenter/backupservers/backupservers_get_response.json
+                            schema: backupservers_get_response
+                    description: Success
+
+        post:
+            body:
+                application/json:
+                    example: !include examples/datacenter/backupservers/backupservers_post_request.json
+                    schema: backupservers_post_request
+            description: '**WARNING! Might lead to tragic consequences. Use with caution!** Register a new backup server in datacenter'
+            (AllowedTo): ["root_admin"]
+            responses:
+                201:
+                    body:
+                        application/json:
+                            example: !include examples/datacenter/backupservers/backupservers_post_response.json
+                            schema: backupservers_post_response
+                    description: Created
+            is:
+                - hasBadRequest
+                - authProtected
+                - hasConflict
+                - hasUnsupportedMediaType
+
+    /backupservers/online_agents:
+        description: 'Manage backup servers agents'
+        post:
+            description: 'Update count of online agents'
+            (AllowedTo): ["root_admin"]
+            body:
+                application/json:
+                    example: !include examples/datacenter/backupservers/online_agents/online_agents_post_request.json
+                    schema: online_agents_post_request
+            is:
+                - hasBasicSuccess
+                - hasBadRequest
+                - authProtected
+                - hasConflict
+                - hasUnsupportedMediaType
+
+
+    /gateways:
+        description: 'Manage registration servers'
+        post:
+            body:
+                application/json:
+                    example: !include examples/datacenter/gateways/gateway_post_request.json
+                    schema: gateway_post_request
+            description: 'Register a new registration server in datacenter'
+            (AllowedTo): ["root_admin"]
+            is:
+                - hasCreated
+                - hasBadRequest
+                - authProtected
+                - hasConflict
+                - hasUnsupportedMediaType
+
+/groups:
+    is:
+        - authProtected
+    /{group}:
+        is:
+            - authProtected
+        /admins:
+            is:
+                - authProtected
+            description: 'Admins management'
+            get:
+                description: 'Get list of administrators for selected group'
+                (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+                responses:
+                    200:
+                        body:
+                            application/json:
+                                example: !include examples/groups/group/admins/admins_get_response.json
+                                schema: admins_get_response
+                        description: Success
+            post:
+                body:
+                    application/json:
+                        example: !include examples/groups/group/admins/admins_post_request.json
+                        schema: admins_post_request
+                description: 'Create a new administrator in specified group. DO NOT USE FOR CREATING SERVICE USERS, THIS SCENARIO WILL BE REMOVED IN FUTURE VERSIONS'
+                (AllowedTo): ["root_admin", "partner_admin"]
+                is:
+                    - hasBadRequest
+                    - hasConflict
+                    - hasUnsupportedMediaType
+                responses:
+                    201:
+                        body:
+                            application/json:
+                                example: !include examples/groups/group/admins/admins_post_response.json
+                                schema: admins_post_response
+                        description: Success
+        /agents:
+            description: 'Agents management'
+            /autoupdate:
+                is:
+                    - authProtected
+                description: 'Agent AutoUpdate feature management'
+                get:
+                    description: 'Get AutoUpdate settings'
+                    (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+                    responses:
+                        200:
+                            body:
+                                application/json:
+                                    example: !include examples/groups/group/agents/autoupdate_get_response.json
+                                    schema: autoupdate_get_response
+                            description: Success
+                post:
+                    body:
+                        application/json:
+                            example: !include examples/groups/group/agents/autoupdate_post_request.json
+                            schema: autoupdate_post_request
+                    description: 'Control AutoUpdate settings'
+                    (AllowedTo): ["root_admin", "partner_admin"]
+                    is:
+                        - hasBasicSuccess
+                        - hasBadRequest
+                        - hasUnsupportedMediaType
+        /backup_server_migration:
+            is:
+                - authProtected
+            description: 'Migrate groups between backup servers'
+            put:
+                body:
+                    application/json:
+                        example: !include examples/groups/group/backup_server_migration/put_request.json
+                        schema: backup_server_migration_put_request
+                description: 'Migrate group from one backup server to another'
+                (AllowedTo): ["root_admin"]
+                is:
+                    - hasBadRequest
+                    - hasUnsupportedMediaType
+                responses:
+                    200:
+                        body:
+                            application/json:
+                                example: !include examples/groups/group/backup_server_migration/put_response.json
+                                schema: backup_server_migration_put_response
+                        description: Success
+        /backupconsole:
+            is:
+                - authProtected
+            description: 'Manage access to backup console'
+            get:
+                description: 'Retrieve redirect url for backup console with access token'
+                (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+                queryParameters:
+                    app:
+                        description: 'Specify that method called from third-party application'
+                        displayName: app
+                        example: aps
+                        required: false
+                        type: string
+                    language:
+                        description: 'Force using specified language in backup-console'
+                        displayName: language
+                        example: en
+                        required: false
+                        type: string
+                    username:
+                        description: 'The display name to show in logout button '
+                        displayName: username
+                        example: aps
+                        required: false
+                        type: string
+                is:
+                    - hasNotAcceptable
+                responses:
+                    200:
+                        body:
+                            application/json:
+                                example: !include examples/groups/group/backup_console/get_response.json
+                                schema: redirect_get_response
+                        description: Success
+        /brand:
+            is:
+                - authProtected
+            description: 'Manage brands'
+            delete:
+                description: 'Disable custom branding'
+                (AllowedTo): ["root_admin", "partner_admin"]
+                is:
+                    - hasBadRequest
+                    - hasUpdateRequired
+                    - returnsNewVersion
+                    - hasVersionAsQueryParameter
+            get:
+                description: 'Get branding options for specific group'
+                (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin", "tenant_viewer"]
+                responses:
+                    200:
+                        body:
+                            application/json:
+                                example: !include examples/groups/group/brand/get_response.json
+                                schema: groups_brand_get_response
+                        description: Success
+            post:
+                body: {}
+                description: 'Enable custom branding options'
+                (AllowedTo): ["root_admin", "partner_admin"]
+                is:
+                    - hasBadRequest
+                    - hasUpdateRequired
+                    - returnsNewVersion
+                    - hasVersionAsQueryParameter
+            put:
+                body:
+                    application/json:
+                        example: !include examples/groups/group/brand/put_request.json
+                        schema: groups_brand_put_request
+                description: 'Modify custom branding options'
+                (AllowedTo): ["root_admin", "partner_admin"]
+                is:
+                    - hasVersionAsQueryParameter
+                    - hasBadRequest
+                    - hasUnsupportedMediaType
+                    - hasUpdateRequired
+                    - returnsNewVersion
+        /children:
+            is:
+                - authProtected
+            description: 'Groups management'
+            get:
+                description: 'Get list of sub-groups for given group'
+                (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+                queryParameters:
+                    request_type:
+                        description: |
+                            Request type, one of "tenants_batch" or "uuids_list".
+                            "uuids_list" will return list of uuids of child tenants
+                            "tenants_batch" will return list of tenants with given uuids
+                        displayName: request_type
+                        enum: [tenants_batch, uuids_list]
+                        example: tenants_batch
+                        required: false
+                        type: string
+                    uuids:
+                        description: |
+                            When request_type is "tenants_batch", list of direct child tenant
+                            with given uuids is returned
+                        displayName: uuids
+                        example: 1e4d7438-0ebe-11e7-b131-c7b5bde6feed,248c535a-0ebe-11e7-a80e-bbdaa1d60c7c
+                        required: false
+                        type: string
+                is:
+                    - hasBadRequest
+                responses:
+                    200:
+                        body:
+                            application/json:
+                                example: !include examples/groups/group/children/get_children_response.json
+                                schema: get_children_response
+                        description: Success
+            post:
+                body:
+                    application/json:
+                        example: !include examples/groups/group/children/post_children_request.json
+                        schema: post_children_request
+                description: 'Create a new group as child of a specified group'
+                (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin"]
+                is:
+                    - hasBadRequest
+                    - hasConflict
+                    - hasUnsupportedMediaType
+                    - returnsNewVersionIdUuid
+        /limits:
+            description: Manage group`s limitations
+            /logon_ips:
+                is:
+                    - authProtected
+                description: 'Logon ips limitation management'
+                delete:
+                    description: 'Disable ip limits'
+                    (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin"]
+                    is:
+                        - hasBasicSuccess
+                        - hasBadRequest
+                get:
+                    description: 'Get ip limits settings'
+                    (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+                    responses:
+                        200:
+                            body:
+                                application/json:
+                                    example: !include examples/groups/group/limits/logon_ips_get_response.json
+                                    schema: logon_ips_get_response
+                            description: Success
+                post:
+                    body:
+                        application/json:
+                            example: !include examples/groups/group/limits/logon_ips_post_request.json
+                            schema: logon_ips_post_request
+                    description: |-
+                        set ip limits settings. Supported formats for item:
+                            * single IP, ex. 203.0.113.2
+                            * IP range, ex. 203.0.113.23 - 203.0.113.200
+                            * IP subnetwork, ex. 203.0.113.32/27
+                    (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin"]
+                    is:
+                        - hasUnsupportedMediaType
+        /lock:
+            is:
+                - authProtected
+            description: 'Manage group`s hierarchy tree'
+            delete:
+                description: 'Unlock group`s hierarchy tree'
+                (AllowedTo): ["root_admin", "partner_admin"]
+                is:
+                    - hasNoContent
+                    - hasBadRequest
+            post:
+                description: 'Lock group`s hierarchy tree'
+                (AllowedTo): ["root_admin", "partner_admin"]
+                is:
+                    - hasNoContent
+                    - hasBadRequest
+        /logo:
+            is:
+                - authProtected
+            description: 'Manage group`s logo'
+            get:
+                description: 'Get group`s logo'
+                (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+                is:
+                    - hasBadRequest
+                    - authProtected
+                responses:
+                    200:
+                        headers:
+                            Content-Type:
+                                type: string
+                                required: true
+                                example: image/png
+                            Cache-Control:
+                                type: string
+                                required: false
+                                example: max-age=86400, must-revalidate
+                            Content-Length:
+                                type: string
+                                required: true
+                                example: '1'
+                        description: Success
+                        body:
+                            image/png: {}
+            post:
+                description: 'Upload a new logotype'
+                (AllowedTo): ["root_admin", "partner_admin"]
+                headers:
+                    Content-Type:
+                        type: string
+                        required: true
+                        example: image/png
+                    Content-Length:
+                        type: string
+                        required: true
+                        example: '1'
+                body:
+                    image/png: {}
+                is:
+                    - hasVersionAsQueryParameter
+                    - hasBadRequest
+                    - returnsNewVersion
+        /migration:
+            is:
+                - authProtected
+            description: 'Migration management'
+            get:
+                description: 'Redirect to migration portal server with auth token'
+                (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+                is:
+                    - hasBasicSuccess
+            put:
+                body:
+                    application/json:
+                        example: !include examples/groups/group/migration/migration_put_request.json
+                        schema: migration_put_request
+                description: 'Set migration settings'
+                (AllowedTo): ["root_admin", "partner_admin"]
+                is:
+                    - returnsNewVersion
+                    - hasVersionAsQueryParameter
+                    - hasUnsupportedMediaType
+                    - hasUpdateRequired
+        /quota_exceedance:
+            is:
+                - authProtected
+            description: 'Quota exceedance management'
+            get:
+                description: 'Get information about exceedance for all quotas'
+                (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+                is:
+                    - hasUnsupportedMediaType
+                responses:
+                    200:
+                        body:
+                            application/json:
+                                example: !include examples/groups/group/quota_exceedance/quota_exceedance_get.json
+                                schema: quota_exceedance
+                        description: Success
+        /reports:
+            description: Manage reports for the specified group
+            /ordered:
+                description: Manage ordered reports for the specified group
+                post:
+                    description: Order a summary report for the specified group
+                    (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+                    body:
+                        application/json:
+                            example: !include examples/groups/group/reports/ordered_post_request.json
+                            schema: ordered_report_post_request
+                    is:
+                        - authProtected
+                        - hasBadRequest
+                        - hasConflict
+                        - hasUnsupportedMediaType
+                    responses:
+                        200:
+                            body:
+                                application/json:
+                                    example: !include examples/groups/group/reports/ordered_post_response.json
+                                    schema: ordered_report_post_response
+                get:
+                    description: Get saved report
+                    (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+                    is:
+                        - authProtected
+                        - hasBadRequest
+                    queryParameters:
+                        begin_date:
+                            description: First date of the reported period
+                            type: integer
+                            required: false
+                            example: 1469434743
+                        end_date:
+                            description: Last date of the reported period
+                            type: integer
+                            required: false
+                            example: 1469434743
+                        level:
+                            description: Report detail level (1|2|3)
+                            type: integer
+                            required: false
+                            example: 3
+                        id:
+                            description: Id of previously ordered report
+                            type: integer
+                            required: false
+                            example: 3
+                        uuid:
+                            description: UUID of previously ordered report
+                            type: string
+                            required: false
+                            example: 1F936FFA-AF93-4064-A65E-201216F24EC9
+
+                    responses:
+                        200:
+                            body:
+                                application/json:
+                                    example: !include examples/groups/group/reports/ordered_get_response.json
+                                    schema: ordered_report_get_response
+                            description: Success
+                        202:
+                            body:
+                                application/json:
+                                    example: !include examples/groups/group/reports/ordered_get_response.json
+                                    schema: ordered_report_get_response
+                            description: Report was order but processing isn't finished yet. Please retry request later
+            /scheduled:
+                description: Manage scheduled reports for the specified group
+                put:
+                    description: Update report scheduling settings for the specified group
+                    (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin"]
+                    is:
+                        - authProtected
+                        - hasBasicSuccess
+                        - hasBadRequest
+                        - hasUnsupportedMediaType
+                    body:
+                        application/json:
+                            example: !include examples/groups/group/reports/scheduled_put_request.json
+                            schema:  scheduled_report_put_request
+                get:
+                    description: Get report scheduling settings for the specified group
+                    (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+                    is:
+                        - authProtected
+                    responses:
+                        200:
+                            body:
+                                application/json:
+                                    example: !include examples/groups/group/reports/scheduled_get_response.json
+                                    schema: scheduled_report_get_response
+        /settings:
+            is:
+                - authProtected
+            /agents_autoupdate:
+                is:
+                    - authProtected
+                description: 'Agent AutoUpdate settings management'
+                get:
+                    description: 'Get AutoUpdate settings'
+                    (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+                    responses:
+                        200:
+                            body:
+                                application/json:
+                                    example: !include examples/groups/group/agents/autoupdate_get_response.json
+                                    schema: autoupdate_get_response
+                            description: Success
+                post:
+                    body:
+                        application/json:
+                            example: !include examples/groups/group/agents/autoupdate_post_request.json
+                            schema: autoupdate_post_request
+                    description: 'Change AutoUpdate settings'
+                    (AllowedTo): ["root_admin", "partner_admin"]
+                    is:
+                        - hasBasicSuccess
+                        - hasBadRequest
+                        - hasUnsupportedMediaType
+            /flags:
+                is:
+                    - authProtected
+                description: 'Group`s flags management'
+                get:
+                    is:
+                        - hasUnsupportedMediaType
+                    description: 'Get group`s flags'
+                    (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+                    responses:
+                        200:
+                            body:
+                                application/json:
+                                    example: !include examples/groups/group/settings/group_flags.json
+                                    schema: settings_get_flags
+                            description: Success
+                post:
+                    body:
+                        application/json:
+                            example: !include examples/groups/group/settings/group_flags.json
+                            schema: settings_post_flags
+                    description: 'Set group`s flags'
+                    (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin"]
+                    is:
+                        - hasBasicSuccess
+                        - hasBadRequest
+                        - hasUnsupportedMediaType
+            /local_backup_restriction:
+                is:
+                    - authProtected
+                description: Local Backup Restriction feature management
+                get:
+                    description: 'Get local backup restriction settings'
+                    (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+                    responses:
+                        200:
+                            body:
+                                application/json:
+                                    example: !include examples/groups/group/settings/local_backup_restriction_get.json
+                                    schema: local_backup_restriction_get
+                            description: Success
+                post:
+                    body:
+                        application/json:
+                            example: !include examples/groups/group/settings/local_backup_restriction_post.json
+                            schema: local_backup_restriction_post
+                    description: 'Change local backup restriction settings'
+                    (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin"]
+                    is:
+                        - hasBasicSuccess
+                        - hasBadRequest
+                        - hasUnsupportedMediaType
+            /logon_ips:
+                is:
+                    - authProtected
+                delete:
+                    description: 'Disable ip limits for group'
+                    (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin"]
+                    is:
+                        - hasBasicSuccess
+                        - hasBadRequest
+                description: 'Logon IPs limitations management'
+                get:
+                    description: 'Get ip limits settings'
+                    (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+                    responses:
+                        200:
+                            body:
+                                application/json:
+                                    example: !include examples/groups/group/limits/logon_ips_get_response.json
+                                    schema: logon_ips_get_response
+                            description: Success
+                post:
+                    body:
+                        application/json:
+                            example: !include examples/groups/group/limits/logon_ips_post_request.json
+                            schema: logon_ips_post_request
+                    description: |-
+                        set ip limits settings. Supported formats for item:
+                            * single IP, ex. 203.0.113.2
+                            * IP range, ex. 203.0.113.23 - 203.0.113.200
+                            * IP subnetwork, ex. 203.0.113.32/27
+                    (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin"]
+                    is:
+                        - hasBasicSuccess
+                        - hasBadRequest
+                        - hasUnsupportedMediaType
+            description: 'Settings management for group and accounts'
+            get:
+                description: 'Fetch settings'
+                (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+                is:
+                    - hasUnsupportedMediaType
+                responses:
+                    200:
+                        body:
+                            application/json:
+                                example: !include examples/groups/group/settings/settings_get_response.json
+                                schema: settings_get_response
+                        description: Success
+        /storages:
+            is:
+                - authProtected
+            /{storage}:
+                is:
+                    - authProtected
+                /finish_migration:
+                    is:
+                        - authProtected
+                    description: 'Finish migration'
+                    post:
+                        description: 'Return EUC back to reports and cancel migration status'
+                        (AllowedTo): ["root_admin", "partner_admin"]
+                        is:
+                            - hasBasicSuccess
+                            - hasBadRequest
+                /start_migration:
+                    is:
+                        - authProtected
+                    description: 'Start migration'
+                    post:
+                        description: 'Mark EUC as migrating and exclude it from reports'
+                        (AllowedTo): ["root_admin", "partner_admin"]
+                        is:
+                            - hasBasicSuccess
+                            - hasBadRequest
+                /users:
+                    is:
+                        - authProtected
+                    description: 'Storage users management'
+                    get:
+                        description: 'Get list of all users for a storage in a group'
+                        (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+                        responses:
+                            200:
+                                body:
+                                    application/json:
+                                        example: !include examples/groups/group/storages/storage/users/storage_users_get.json
+                                        schema: storage_users_get
+                                description: Success
+                delete:
+                    description: 'Remove storage'
+                    (AllowedTo): ["root_admin", "partner_admin"]
+                    is:
+                        - hasVersionAsQueryParameter
+                        - hasNoContent
+                        - hasBadRequest
+                        - hasUpdateRequired
+                description: 'Certain storage management'
+                get:
+                    description: 'Get storage for group'
+                    (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+                    responses:
+                        200:
+                            body:
+                                application/json:
+                                    example: !include examples/groups/group/storages/storage/storage_get_response.json
+                                    schema: storage_get_response
+                            description: Success
+                put:
+                    body:
+                        application/json:
+                            example: !include examples/groups/group/storages/storage/storage_put_request.json
+                            schema: storage_put_request
+                    description: 'Update storage'
+                    (AllowedTo): ["root_admin", "partner_admin"]
+                    is:
+                        - hasVersionAsQueryParameter
+                        - hasBadRequest
+                        - hasConflict
+                        - hasUnsupportedMediaType
+                        - hasUpdateRequired
+                    responses:
+                        202:
+                            body:
+                                application/json:
+                                    example: !include examples/_common/version.json
+                                    schema: common_version_response
+                            description: Accepted
+            description: Storages management
+            get:
+                description: 'Get list of all available storages for group'
+                (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+                responses:
+                    200:
+                        body:
+                            application/json:
+                                example: !include examples/groups/group/storages/get_response.json
+                                schema: storages_get_response
+                        description: Success
+            post:
+                body:
+                    application/json:
+                        example: !include examples/groups/group/storages/post_request.json
+                        schema: storages_post_request
+                description: 'Register a new storage'
+                (AllowedTo): ["root_admin", "partner_admin"]
+                is:
+                    - hasBadRequest
+                    - hasConflict
+                    - hasUnsupportedMediaType
+                responses:
+                    200:
+                        body:
+                            application/json:
+                                example: !include examples/groups/group/storages/post_response.json
+                                schema: storages_post_response
+                        description: Success
+            put:
+                body:
+                    application/json:
+                        example: !include examples/groups/group/storages/put_request.json
+                        schema: storages_put_request
+                description: 'Update inheritance for storage'
+                (AllowedTo): ["root_admin", "partner_admin"]
+                is:
+                    - hasVersionAsQueryParameter
+                    - hasUnsupportedMediaType
+                    - hasUpdateRequired
+                    - returnsNewVersion
+        /users:
+            is:
+                - authProtected
+            description: 'Service users management'
+            get:
+                description: 'Get list of service users for group'
+                (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+                queryParameters:
+                    include_hidden:
+                        description: |
+                            Include hidden accounts.
+                            Default is 0 (hidden accounts are not included in result).
+                        displayName: include_hidden
+                        example: 1
+                        required: false
+                        type: number
+                responses:
+                    200:
+                        body:
+                            application/json:
+                                example: !include examples/groups/group/users/users_get_response.json
+                                schema: users_get_response
+                        description: Success
+            post:
+                body:
+                    application/json:
+                        example: !include examples/groups/group/users/users_request.json
+                        schema: users_request
+                description: 'Create a new backup account'
+                (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin"]
+                is:
+                    - hasBadRequest
+                    - hasConflict
+                    - returnsNewVersionIdUuid
+        /watchers:
+            is:
+                - authProtected
+            description: 'Miscellaneous groups api'
+            get:
+                description: 'Get group watchers'
+                (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+                queryParameters:
+                    event_mask:
+                        description: 'Event level mask value from Constants.Notification.ServiceType.* (Backup Error 1, Backup Warning 2, Backup Info 4, Daily Report 8)'
+                        displayName: event_mask
+                        example: 1
+                        type: integer
+                        required: true
+                    service_kind:
+                        description: 'Service kind id value from Constants.AdminNotification.* (Management 1, Backup 2)'
+                        displayName: service_kind
+                        type: integer
+                        example: 1
+                        required: true
+                    levels_up:
+                        description: |
+                            Limit number of higher levels watchers.
+                            Deprecated parameter, could be useful with value 0 for backup accounts for daily recap messages.
+                        displayName: levels_up
+                        example: 0
+                        type: integer
+                        required: false
+                responses:
+                    200:
+                        body:
+                            application/json:
+                                example: !include examples/groups/group/watchers/get_watchers.json
+                                schema: groups_get_watchers
+                        description: Success
+        delete:
+            description: 'Remove given group'
+            (AllowedTo): ["root_admin", "partner_admin", "company_admin"]
+            is:
+                - hasVersionAsQueryParameter
+                - hasNoContent
+                - hasBadRequest
+                - hasUpdateRequired
+        description: 'Certain group management'
+        get:
+            description: 'Get detailed information about selected group'
+            (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+            responses:
+                200:
+                    body:
+                        application/json:
+                            example: !include examples/groups/group/groups_get_response.json
+                            schema: groups_get_response
+                    description: Success
+        put:
+            body:
+                application/json:
+                    example: !include examples/groups/group/groups_put_request.json
+                    schema: groups_put_request
+            description: 'Update group`s properties'
+            (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin"]
+            is:
+                - hasVersionAsQueryParameter
+                - hasBadRequest
+                - hasConflict
+                - hasUnsupportedMediaType
+                - hasUpdateRequired
+                - returnsNewVersion
+    description: 'Groups management'
+    get:
+        description: 'Search group by name, backup account by login or administrators by login'
+        (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin", "tenant_viewer"]
+        queryParameters:
+            limit:
+                description: 'Limit the result, limited number of accounts + limited number of tenants. Default = 10'
+                displayName: limit
+                example: 10
+                required: false
+                type: number
+            prefix:
+                description: 'Prefix to search'
+                displayName: prefix
+                example: group
+                required: false
+                type: string
+            strict:
+                description: 'If true, then only exact matches are returned. Default = 0'
+                displayName: strict
+                example: 0
+                required: false
+                type: number
+        responses:
+            200:
+                body:
+                    application/json:
+                        example: !include examples/groups/groups_search_response.json
+                        schema: groups_search_response
+                description: Success
+
+/idp:
+    is:
+        - authProtected
+    get:
+        description: 'Get information about identity provider'
+        (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+        queryParameters:
+            id:
+                description: 'IdP integer id'
+                displayName: id
+                example: 1
+                required: false
+                type: integer
+            uuid:
+                description: 'IdP uuid'
+                displayName: uuid
+                example: '11111111-1111-1111-1111-111111111111'
+                required: false
+                type: string
+        is:
+            - hasBadRequest
+            - hasUpdateRequired
+        responses:
+            200:
+                body:
+                    application/json:
+                        example: !include examples/idp/certain_idp_get_response.json
+                        schema: certain_idp_get_response
+                description: Success
+
+/logic:
+    description: Logical values management
+    /alarms:
+        description: 'Manage end-customer alarms'
+        get:
+            description: 'Get alarms'
+            (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+            responses:
+                200:
+                    body:
+                        application/json:
+                            example: !include examples/logic/get_alarms.json
+                            schema: get_alarms
+                    description: Success
+    /constants:
+        description: 'Manage logic constants'
+        get:
+            description: 'Retrieve constants for admins'
+            (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+            responses:
+                200:
+                    body:
+                        application/json:
+                            example: !include examples/logic/get_constants.json
+                            schema: get_constants
+                    description: Success
+    /currencies:
+        description: 'Pricing currencies management'
+        get:
+            description: 'get pricing currencies'
+            (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+            responses:
+                200:
+                    body:
+                        application/json:
+                            example: !include examples/logic/get_currencies.json
+                            schema: get_currencies
+                    description: Success
+    /languages:
+        /ui:
+            description: 'Get supported languages'
+            get:
+                description: 'Join client languages with supported languages'
+                (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+                responses:
+                    200:
+                        body:
+                            application/json:
+                                example: !include examples/logic/get_languages_gui.json
+                                schema: get_languages_gui
+                        description: Success
+        description: 'Get supported languages'
+        get:
+            description: 'Get supported languages'
+            (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+            responses:
+                200:
+                    body:
+                        application/json:
+                            example: !include examples/logic/get_languages.json
+                            schema: get_languages
+                    description: Success
+    /rules:
+        description: 'Groups constants'
+        get:
+            description: 'Retrieve rules for groups, GroupBusinessRules[str(group_kind)][str(group_grade)], see /logic/constants.GroupsKind for details'
+            (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+            responses:
+                200:
+                    body:
+                        application/json:
+                            example: !include examples/logic/get_rules.json
+                            schema: get_rules
+                    description: Success
+    /versions:
+        description: 'Get components versions'
+        get:
+            description: 'returns components versions'
+            (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+            responses:
+                200:
+                    body:
+                        application/json:
+                            example: !include examples/logic/get_versions.json
+                            schema: get_versions
+                    description: Success
+
+/login:
+    description: 'Login to the system'
+    is:
+        - authProtected
+        - hasBadRequest
+        - hasFound
+        - has423Placeholder
+    get:
+        description: 'Login to the system using JWT'
+        (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+        queryParameters:
+            jwt:
+                description: 'Jwt login token'
+                displayName: jwt
+                example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9
+                required: false
+                type: string
+        responses:
+            200:
+                body:
+                    application/json:
+                        example: !include examples/auth/profile.json
+                        schema: auth_profile
+                description: Success
+    post:
+        body:
+            application/json:
+                example: !include examples/auth/post_request.json
+                schema: auth_post_request
+        description: 'Login to the system'
+        (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+        is:
+            - hasUnsupportedMediaType
+            - hasFound
+            - has423Placeholder
+        responses:
+            423:
+                description: Lets try
+            200:
+                body:
+                    application/json:
+                        example: !include examples/auth/post_response.json
+                        schema: auth_post_response
+                description: Success
+            403:
+                body:
+                    application/json:
+                        example: !include examples/auth/post_response_403.json
+                        schema: login_post_response_403
+                description: Access from given IP is not allowed
+
+/logout:
+    description: 'Logout from the system'
+    get:
+        description: 'Logout from the system'
+        (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+        is:
+            - hasBasicSuccess
+            - hasUnauthorized
+            - hasFound
+    post:
+        description: 'Logout from the system'
+        (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+        is:
+            - hasNoContent
+            - hasUnauthorized
+
+/profile:
+    description: 'Show information about current user'
+    get:
+        description: 'Show information about current user'
+        (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+        is:
+            - authProtected
+            - hasBadRequest
+        responses:
+            200:
+                body:
+                    application/json:
+                        example: !include examples/auth/profile.json
+                        schema: auth_profile
+                description: Success
+
+/profiles:
+    description: 'Show information about all accounts associated with currently logged in identity'
+    get:
+        description: 'Show information about all accounts associated with currently logged in identity'
+        (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+        is:
+            - authProtected
+            - hasBadRequest
+        responses:
+            200:
+                body:
+                    application/json:
+                        example: !include examples/auth/profiles.json
+                        schema: auth_profiles
+                description: Success
+
+/redirect:
+    description: 'Check auth cookies and set X-Accel-Redirect header from "url" query param'
+    get:
+        description: 'Return 204 with url inside X-Accel-Redirect header. Otherwise 403'
+        (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+        queryParameters:
+            url:
+                description: 'Internal redirect'
+                displayName: url
+                example: /logic/constants
+                required: true
+                type: string
+        is:
+            - hasBadRequest
+            - hasUnauthorized
+            - hasForbidden
+        responses:
+            204:
+                headers:
+                    X-Accel-Redirect:
+                        type: string
+                        required: true
+                        example: https://example.com
+                description: 'Redirected'
+                body: {}
+
+/reports:
+    description: Usage reports management
+    post:
+        body:
+            application/json:
+                example: !include examples/reports/reports_post_request.json
+                schema: reports_post_request
+        description: Create a new report
+        (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+        is:
+            - authProtected
+            - hasUnsupportedMediaType
+            - returnsNewVersionAndId
+    get:
+        description: Get list of reports
+        (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+        is:
+            - authProtected
+        responses:
+            200:
+                body:
+                    application/json:
+                        example: !include examples/reports/reports_get_response.json
+                        schema: reports_get_response
+                description: Success
+    /{report}:
+        description: Certain report management
+        delete:
+            description: Remove report
+            (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin"]
+            is:
+                - authProtected
+                - hasNoContent
+                - hasUpdateRequired
+                - hasVersionAsQueryParameter
+        put:
+            description: Modify properties of specific report
+            (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin"]
+            body:
+                application/json:
+                    example: !include examples/reports/report/certain_report_put_request.json
+                    schema: certain_report_put_request
+            is:
+                - authProtected
+                - hasBadRequest
+                - returnsNewVersion
+                - hasUpdateRequired
+                - hasUnsupportedMediaType
+                - hasVersionAsQueryParameter
+        get:
+            description: Get information about specific report
+            (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+            is:
+                - authProtected
+            responses:
+                200:
+                    body:
+                        application/json:
+                            example: !include examples/reports/report/certain_report_get_response.json
+                            schema: certain_report_get_response
+        /adhoc:
+            description: Send ad hock report
+            post:
+                description: Send ad hock report
+                (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+                is:
+                    - hasNoContent
+                    - hasBadRequest
+                    - authProtected
+                    - hasUnsupportedMediaType
+                body:
+                    application/json:
+                        example: !include examples/reports/report/adhock/adhock_post_request.json
+                        schema: adhock_post_request
+        /send:
+            description: Schedule sending of report
+            post:
+                is:
+                    - hasNoContent
+                    - hasBadRequest
+                    - authProtected
+                description: Send report
+                (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+
+/updates:
+    description: 'Updates management'
+    /client:
+        /{id}:
+            delete:
+                description: 'Remove update'
+                (AllowedTo): ["root_admin"]
+                is:
+                    - hasBasicSuccess
+                    - authProtected
+                    - hasUpdateRequired
+            description: 'Update management'
+            get:
+                description: 'Get specific update'
+                (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+                is:
+                    - authProtected
+                responses:
+                    200:
+                        body:
+                            application/json:
+                                example: !include examples/updates/id/update_info.json
+                                schema: update_info
+                        description: Success
+        description: 'Updates for Backup Client management'
+        get:
+            description: 'Get list of updates'
+            (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+            is:
+                - authProtected
+            responses:
+                200:
+                    body:
+                        application/json:
+                            example: !include examples/updates/get_response.json
+                            schema: updates_get_response
+                    description: Success
+        post:
+            body:
+                application/json:
+                    example: !include examples/updates/post_request.json
+                    schema: updates_post_request
+            description: 'Create a new update for Backup Client'
+            (AllowedTo): ["root_admin"]
+            is:
+                - hasBadRequest
+                - authProtected
+                - hasConflict
+                - hasUnsupportedMediaType
+            responses:
+                200:
+                    body:
+                        application/json:
+                            example: !include examples/updates/post_response.json
+                            schema: updates_post_response
+                    description: Success
+
+/users:
+    /{user}:
+        /hosts:
+            description: 'Get host addresses for account'
+            post:
+                description: 'Return list of host-names and ports that will be used by Backup Client'
+                (AllowedTo): ["company_admin", "unit_admin"]
+                is:
+                    - authProtected
+                responses:
+                    200:
+                        body:
+                            application/json:
+                                example: !include examples/users/hosts_post_response.json
+                                schema: hosts_post_response
+                        description: Success
+        /impersonate:
+            description: 'Service user impersonation'
+            is:
+                - authProtected
+            get:
+                description: 'Get impersonated JWT token for specified service user'
+                (AllowedTo): ["root_admin"]
+                responses:
+                    200:
+                        body:
+                            application/json:
+                                example: !include examples/_common/jwt.json
+                                schema: common_jwt_response
+                        description: Success
+        /jwt:
+            description: 'Issuing JWT token'
+            get:
+                description: 'Issue JWT token. You can add jwt=''your jwt token'' query parameter to most of requests to perform this action as selected user'
+                (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+                is:
+                    - hasBadRequest
+                    - authProtected
+                queryParameters:
+                    scope: !include parameters/scope.yaml
+                responses:
+                    200:
+                        body:
+                            application/json:
+                                example: !include examples/_common/jwt.json
+                                schema: common_jwt_response
+                        description: Success
+        /links:
+            description: 'Get links for users'
+            get:
+                description: 'Get links for user'
+                (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+                queryParameters:
+                    origin:
+                        description: 'Indicator of where the link will be shown'
+                        displayName: origin
+                        example: email_notification
+                        required: false
+                        type: string
+                    redirect_url:
+                        description: 'URL that the buyer will be redirected to after the purchase'
+                        displayName: redirect_url
+                        example: cloud.mysite.com
+                        required: false
+                        type: string
+                is:
+                    - authProtected
+                responses:
+                    200:
+                        body:
+                            application/json:
+                                example: !include examples/users/links_get_response.json
+                                schema: links_get_response
+                        description: Success
+        /machines:
+            description: 'High-level machines management'
+            head:
+                description: Check user`s write permissions
+                (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+                is:
+                    - authProtected
+                    - hasBasicSuccess
+                    - hasBadRequest
+            post:
+                body:
+                    application/json:
+                        example: !include examples/users/machines_post_request.json
+                        schema: machines_post_request
+                description: 'Add a new machine to backup account'
+                (AllowedTo): ["company_admin", "unit_admin"]
+                is:
+                    - hasBadRequest
+                    - authProtected
+                    - hasConflict
+                    - hasUnsupportedMediaType
+                responses:
+                    200:
+                        body:
+                            application/json:
+                                example: !include examples/users/machines_post_response.json
+                                schema: machines_post_response
+                        description: Created
+        delete:
+            description: 'Remove service user'
+            (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin"]
+            is:
+                - hasVersionAsQueryParameter
+                - hasNoContent
+                - hasBadRequest
+                - authProtected
+                - hasUpdateRequired
+        description: 'Service user management'
+        get:
+            description: 'Get detailed information on the service user'
+            (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin", "readonly_admin"]
+            is:
+                - authProtected
+            responses:
+                200:
+                    body:
+                        application/json:
+                            example: !include examples/users/user_get_response.json
+                            schema: user_get_response
+                    description: Success
+        put:
+            body:
+                application/json:
+                    example: !include examples/groups/group/users/users_request.json
+                    schema: users_request
+            description: 'Update service user properties'
+            (AllowedTo): ["root_admin", "partner_admin", "company_admin", "unit_admin"]
+            is:
+                - hasVersionAsQueryParameter
+                - hasBadRequest
+                - authProtected
+                - hasConflict
+                - hasUnsupportedMediaType
+                - hasUpdateRequired
+                - returnsNewVersion
+
+schemas:
+    anything_schema: !include schemas/_common/anything.json
+    common_version_response: !include schemas/_common/version.json
+    common_version_and_id_response: !include schemas/_common/version_and_id.json
+    common_version_id_uuid_response: !include schemas/_common/version_id_uuid.json
+    common_error_response: !include schemas/_common/errors/error.json
+    common_jwt_response: !include schemas/_common/jwt.json
+
+    accounts_get_response: !include schemas/accounts/accounts_get_response.json
+    accounts_post_request: !include schemas/accounts/accounts_post_request.json
+    actions_get_response: !include schemas/actions/get_response.json
+    actions_get_activate_response: !include schemas/actions/get_activate_response.json
+    activate_post_request: !include schemas/actions/activate_post_request.json
+    activate_request: !include schemas/actions/activate_request.json
+    adhock_post_request: !include schemas/reports/report/adhock/adhock_post_request.json
+    admin_get_response: !include schemas/admins/admin_get_response.json
+    admin_put_request: !include schemas/admins/admin_put_request.json
+    admins_get_response: !include schemas/groups/group/admins/admins_get_response.json
+    admins_post_request: !include schemas/groups/group/admins/admins_post_request.json
+    admins_post_response: !include schemas/groups/group/admins/admins_post_response.json
+    auth_post_request: !include schemas/auth/post_request.json
+    auth_post_response: !include schemas/auth/post_response.json
+    auth_profile: !include schemas/auth/profile.json
+    auth_profiles: !include schemas/auth/profiles.json
+    autoupdate_get_response: !include schemas/groups/group/agents/autoupdate_get_response.json
+    autoupdate_post_request: !include schemas/groups/group/agents/autoupdate_post_request.json
+    backup_server_migration_put_request: !include schemas/groups/group/backup_server_migration/put_request.json
+    backup_server_migration_put_response: !include schemas/groups/group/backup_server_migration/put_response.json
+    backupservers_get_response: !include schemas/datacenter/backupservers/backupservers_get_response.json
+    backupservers_post_request: !include schemas/datacenter/backupservers/backupservers_post_request.json
+    backupservers_post_response: !include schemas/datacenter/backupservers/backupservers_post_response.json
+    branding_avaliable_response: !include schemas/branding/branding_avaliable_response.json
+    certain_idp_get_response: !include schemas/idp/certain_idp_get_response.json
+    certain_report_get_response: !include schemas/reports/report/certain_report_get_response.json
+    certain_report_put_request: !include schemas/reports/report/certain_report_put_request.json
+    change_login_request: !include schemas/actions/change_login_request.json
+    change_password_request: !include schemas/actions/change_password_request.json
+    email_update_response: !include schemas/actions/email_update_response.json
+    error: !include schemas/_common/errors/error.json
+    forgot_link_response: !include schemas/actions/forgot_link_response.json
+    gateway_post_request: !include schemas/datacenter/gateways/gateway_post_request.json
+    get_alarms: !include schemas/logic/get_alarms.json
+    get_brand_response: !include schemas/brands/get_brand_response.json
+    get_children_response: !include schemas/groups/group/children/get_children_response.json
+    get_constants: !include schemas/logic/get_constants.json
+    get_currencies: !include schemas/logic/get_currencies.json
+    get_languages: !include schemas/logic/get_languages.json
+    get_languages_gui: !include schemas/logic/get_languages_gui.json
+    get_rules: !include schemas/logic/get_rules.json
+    get_versions: !include schemas/logic/get_versions.json
+    groups_brand_get_response: !include schemas/groups/group/brand/get_response.json
+    groups_brand_put_request: !include schemas/groups/group/brand/put_request.json
+    groups_get_response: !include schemas/groups/group/groups_get_response.json
+    groups_get_watchers: !include schemas/groups/group/watchers/get_watchers.json
+    groups_put_request: !include schemas/groups/group/groups_put_request.json
+    groups_search_response: !include schemas/groups/groups_search_response.json
+    hosts_post_response: !include schemas/users/hosts_post_response.json
+    links_get_response: !include schemas/users/links_get_response.json
+    local_backup_restriction_get: !include schemas/groups/group/settings/local_backup_restriction_get.json
+    local_backup_restriction_post: !include schemas/groups/group/settings/local_backup_restriction_post.json
+    login_post_response_403: !include schemas/auth/post_response_403.json
+    logon_ips_get_response: !include schemas/groups/group/limits/logon_ips_get_response.json
+    logon_ips_post_request: !include schemas/groups/group/limits/logon_ips_post_request.json
+    machines_post_request: !include schemas/users/machines_post_request.json
+    machines_post_response: !include schemas/users/machines_post_response.json
+    mail_actions_get_response: !include schemas/actions/mail_actions_get_response.json
+    migration_put_request: !include schemas/groups/group/migration/migration_put_request.json
+    online_agents_post_request: !include schemas/datacenter/backupservers/online_agents/online_agents_post_request.json
+    ordered_report_get_response: !include schemas/groups/group/reports/ordered_get_response.json
+    ordered_report_post_request: !include schemas/groups/group/reports/ordered_post_request.json
+    ordered_report_post_response: !include schemas/groups/group/reports/ordered_post_response.json
+    post_children_request: !include schemas/groups/group/children/post_children_request.json
+    quota_exceedance: !include schemas/groups/group/quota_exceedance/quota_exceedance_get.json
+    redirect_get_response: !include schemas/groups/group/backup_console/get_response.json
+    reports_get_response: !include schemas/reports/reports_get_response.json
+    reports_post_request: !include schemas/reports/reports_post_request.json
+    scheduled_report_get_response: !include schemas/groups/group/reports/scheduled_get_response.json
+    scheduled_report_put_request: !include schemas/groups/group/reports/scheduled_put_request.json
+    settings_get_flags: !include schemas/groups/group/settings/settings_get_flags.json
+    settings_get_response: !include schemas/groups/group/settings/settings_get_response.json
+    settings_post_flags: !include schemas/groups/group/settings/settings_post_flags.json
+    storage_get_response: !include schemas/groups/group/storages/storage/storage_get_response.json
+    storage_put_request: !include schemas/groups/group/storages/storage/storage_put_request.json
+    storage_users_get: !include schemas/groups/group/storages/storage/users/storage_users_get.json
+    storages_get_response: !include schemas/groups/group/storages/get_response.json
+    storages_post_request: !include schemas/groups/group/storages/post_request.json
+    storages_post_response: !include schemas/groups/group/storages/post_response.json
+    storages_put_request: !include schemas/groups/group/storages/put_request.json
+    test_mail: !include schemas/actions/mail/test.json
+    update_info: !include schemas/updates/id/update_info.json
+    updates_get_response: !include schemas/updates/get_response.json
+    updates_post_request: !include schemas/updates/post_request.json
+    updates_post_response: !include schemas/updates/post_response.json
+    user_get_response: !include schemas/users/user_get_response.json
+    users_get_response: !include schemas/groups/group/users/users_get_response.json
+    users_request: !include schemas/groups/group/users/users_request.json
+
+traits:
+    hasBasicSuccess:
+        responses:
+            200:
+                body:
+                    application/json:
+                        schema: anything_schema
+                        example: "\"Success\""
+                description: Success
+
+    hasCreated:
+        responses:
+            201:
+                body:
+                    application/json:
+                        schema: anything_schema
+                        example: "\"Created\""
+                description: Created
+
+    hasNoContent:
+        responses:
+            204:
+                body:
+                    application/json:
+                        schema: anything_schema
+                        example: "\"No Content\""
+                description: No content
+
+    hasFound:
+        responses:
+            302:
+                body:
+                    application/json:
+                        schema: anything_schema
+                        example: "\"Found\""
+                description: Found
+
+    hasNotModified:
+        responses:
+            304:
+                body:
+                    application/json:
+                        schema: anything_schema
+                        example: "\"Not Modified\""
+                description: Mot modified
+
+    hasBadRequest:
+        responses:
+            400:
+                description: Bad request
+                body:
+                    application/json:
+                        example: !include examples/_common/errors/error400.json
+                        schema: common_error_response
+
+    hasUnauthorized:
+        responses:
+            401:
+                description: Method required an authenticated user
+                body:
+                    application/json:
+                        example: !include examples/_common/errors/error401.json
+                        schema: common_error_response
+
+    hasForbidden:
+        responses:
+            403:
+                description: Current user has no permissions for this URL/method
+                body:
+                    application/json:
+                        example: !include examples/_common/errors/error403.json
+                        schema: common_error_response
+
+    hasNotFound:
+        responses:
+            404:
+                description: Not found
+                body:
+                    application/json:
+                        example: !include examples/_common/errors/error404.json
+                        schema: common_error_response
+
+    hasNotAcceptable:
+        responses:
+            406:
+                description: Not Acceptable
+                body:
+                    application/json:
+                        example: !include examples/_common/errors/error406.json
+                        schema: common_error_response
+
+    hasConflict:
+        responses:
+            409:
+                description: Conflict
+                body:
+                    application/json:
+                        example: !include examples/_common/errors/error409.json
+                        schema: common_error_response
+
+    hasGone:
+        responses:
+            410:
+                description: Session expired
+                body:
+                    application/json:
+                        example: !include examples/_common/errors/error410.json
+                        schema: common_error_response
+
+    hasUnsupportedMediaType:
+        responses:
+            415:
+                description: Invalid content type
+                body:
+                    application/json:
+                        example: !include examples/_common/errors/error415.json
+                        schema: common_error_response
+
+    hasUpdateRequired:
+        responses:
+            426:
+                description: Version mismatch
+                body:
+                    application/json:
+                        example: !include examples/_common/errors/error426.json
+                        schema: common_error_response
+
+    hasRetryWith:
+        responses:
+            404:
+                description: The service is not available now, please try again. This a placeholder for 449 code
+                body:
+                    application/json:
+                        example: !include examples/_common/errors/error449.json
+                        schema: common_error_response
+
+    has423Placeholder:
+        responses:
+            503:
+                description: |-
+                    If response consists header 'Retry-After' with value N, then user locked on N seconds, else user locked.
+                    Attention! This is a placeholder for a code 423! Due to RAML specification restrictions, this code can not be used.
+
+    #
+
+    authProtected:
+        responses:
+            401:
+                description: Method required an authenticated user
+                body:
+                    application/json:
+                        example: !include examples/_common/errors/error401.json
+                        schema: common_error_response
+
+            403:
+                description: Current user has no permissions for this URL/method
+                body:
+                    application/json:
+                        example: !include examples/_common/errors/error403.json
+                        schema: common_error_response
+
+            404:
+                description: Not found
+                body:
+                    application/json:
+                        example: !include examples/_common/errors/error404.json
+                        schema: common_error_response
+
+    mailActionQuery:
+        queryParameters:
+            email: !include parameters/email.yaml
+            login: !include parameters/login.yaml
+            user_id: !include parameters/user_id.yaml
+
+    returnsNewVersion:
+        responses:
+            200:
+                description: Object has been updated
+                body:
+                    application/json:
+                        example: !include examples/_common/version.json
+                        schema: common_version_response
+
+    returnsNewVersionAndId:
+        responses:
+            200:
+                description: Success
+                body:
+                    application/json:
+                        example: !include examples/_common/version_and_id.json
+                        schema: common_version_and_id_response
+
+    returnsNewVersionIdUuid:
+        responses:
+            201:
+                description: Success
+                body:
+                    application/json:
+                        example: !include examples/_common/version_id_uuid.json
+                        schema: common_version_id_uuid_response
+
+    hasVersionAsQueryParameter:
+        queryParameters:
+            version: !include parameters/version.yaml
